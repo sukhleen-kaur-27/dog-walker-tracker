@@ -61,6 +61,17 @@ pip install -r requirements.txt
 ```bash
 python -m uvicorn main:app --reload
 ```
+
+Server will start at: 
+http://127.0.0.1:8000
+
+### 3️⃣ Open the frontend
+
+Open these files directly in your browser:
+frontend/walker.html
+frontend/owner.html
+⚠️ The backend must be running before opening the frontend.
+
 ---
 
 ## 🚀 Future Improvements
@@ -76,3 +87,10 @@ python -m uvicorn main:app --reload
 -🌐 Google Maps integration
 
 -🐕 Support for multiple walkers and dogs
+
+
+
+## 👤 Author
+
+Sukhleen Kaur
+Software Engineer | Python | FastAPI | Real-time Systems
