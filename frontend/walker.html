@@ -1,58 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Dog Walker</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
+  <title>Walker</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    #map { height: 400px; margin-top: 15px; }
+    button {
+      padding: 10px;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
 
-<h1 class="text-4xl font-bold mb-4 text-gray-800">🚶 Dog Walker</h1>
-<div id="status" class="p-3 bg-yellow-400 text-black rounded shadow mb-4 w-full max-w-md text-center">
-  Connecting to server...
-</div>
-<button id="startBtn" class="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 mb-4">
-  Start Walk
-</button>
+<body>
+  <h2>🚶 Walker</h2>
 
-<script>
-window.addEventListener("DOMContentLoaded", () => {
-  // const ws = new WebSocket("ws://127.0.0.1:8000/ws");
-  const ws = new WebSocket(
-  "wss://dog-walker-tracker.up.railway.app/ws"
-);
-  ws.onopen = () => {
-    document.getElementById("status").innerText = "Connected to server!";
-    document.getElementById("status").className = "p-3 bg-green-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
-  };
-  ws.onerror = () => {
-    document.getElementById("status").innerText = "Connection error!";
-    document.getElementById("status").className = "p-3 bg-red-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
-  };
-  ws.onclose = () => console.log("WebSocket closed. Refresh to reconnect.");
+  <p>Walk ID: <strong id="walkId"></strong></p>
 
-  let intervalId;
+  <button onclick="startWalk()">▶ Start Walk</button>
+  <button onclick="stopWalk()">⏹ Stop Walk</button>
 
-  document.getElementById("startBtn").addEventListener("click", () => {
-    if (!navigator.geolocation) return alert("Geolocation not supported");
-    if(intervalId) return; // prevent multiple intervals
+  <div id="status">Waiting to start</div>
 
-    intervalId = setInterval(() => {
-      if(ws.readyState !== WebSocket.OPEN) return;
+  <div id="map"></div>
 
-      navigator.geolocation.getCurrentPosition(pos => {
-        const data = {
-          role: "walker",
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          timestamp: Date.now()
-        };
-        ws.send(JSON.stringify(data));
-      });
-    }, 3000);
-  });
-});
-</script>
+  <script>
+    const walkId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    document.getElementById("walkId").innerText = walkId;
 
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${location.host}/ws`);
+
+    let map, marker;
+    let walkActive = false;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: "register",
+        role: "walker",
+        walk_id: walkId
+      }));
+    };
+
+    function startWalk() {
+      walkActive = true;
+      document.getElementById("status").innerText = "🟢 Walk started";
+    }
+
+    function stopWalk() {
+      walkActive = false;
+      document.getElementById("status").innerText = "🔴 Walk stopped";
+    }
+
+    navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+
+      if (!map) {
+        map = L.map("map").setView([latitude, longitude], 16);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap"
+        }).addTo(map);
+
+        marker = L.marker([latitude, longitude]).addTo(map);
+      } else {
+        marker.setLatLng([latitude, longitude]);
+        map.panTo([latitude, longitude]);
+      }
+
+      // 🔥 Only send location if walk is active
+      if (walkActive && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "location",
+          walk_id: walkId,
+          lat: latitude,
+          lng: longitude
+        }));
+      }
+    });
+  </script>
 </body>
 </html>

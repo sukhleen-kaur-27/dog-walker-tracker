@@ -1,103 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Dog Tracker - Owner</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <title>Owner</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
-    #map { height: 500px; width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; }
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      height: 400px;
+      margin-top: 15px;
+    }
+    .stats {
+      margin-top: 10px;
+      font-size: 16px;
+    }
   </style>
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
 
-<h1 class="text-4xl font-bold mb-4 text-gray-800">🐕 Dog Tracker</h1>
-<div id="status" class="p-3 bg-yellow-400 text-black rounded shadow mb-4 w-full max-w-md text-center">
-  Waiting for dog walker location...
-</div>
-<div id="map" class="w-full max-w-4xl"></div>
+<body>
+  <h2>🐶 Owner View</h2>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-const map = L.map('map').setView([0,0], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+  <label>
+    Enter Walk ID:
+    <input id="walkIdInput" />
+  </label>
+  <button onclick="connect()">Connect</button>
 
-const walkerMarker = L.marker([0,0], {title: "Walker"}).addTo(map);
-const ownerMarker = L.marker([0,0], {title: "Owner"}).addTo(map);
-let routeCoordinates = [];
-let routePolyline;
+  <div id="walkState" class="stats">
+    ⏸ Waiting for walk to start
+  </div>
 
-function haversineDistance(pos1, pos2) {
-  const R = 6371;
-  const dLat = (pos2.lat - pos1.lat) * Math.PI / 180;
-  const dLng = (pos2.lng - pos1.lng) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(pos1.lat*Math.PI/180) * Math.cos(pos2.lat*Math.PI/180) * Math.sin(dLng/2)**2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
+  <div class="stats">
+    Distance: <span id="distance">0</span> meters
+  </div>
+  <div class="stats">
+    Duration: <span id="duration">0</span> seconds
+  </div>
 
-function calculateDistance(coords) {
-  if(coords.length < 2) return 0;
-  let total = 0;
-  for(let i=1; i<coords.length; i++) total += haversineDistance(coords[i-1], coords[i]);
-  return total;
-}
+  <div id="map"></div>
 
-// const ws = new WebSocket("ws://127.0.0.1:8000/ws");
-const ws = new WebSocket(
-  "wss://dog-walker-tracker.up.railway.app/ws"
-);
+  <script>
+    let ws;
+    let map, marker, polyline;
+    let path = [];
+    let totalDistance = 0;
+    let startTime = null;
 
-ws.onopen = () => {
-  document.getElementById("status").innerText = "Connected to dog walker!";
-  document.getElementById("status").className = "p-3 bg-green-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
+    function connect() {
+      const walkId = document.getElementById("walkIdInput").value.trim();
+      if (!walkId) {
+        alert("Enter Walk ID");
+        return;
+      }
 
-  // Send owner's location once on load
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos => {
-      const ownerData = {
-        role: "owner",
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        timestamp: Date.now()
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${protocol}://${location.host}/ws`);
+
+      ws.onopen = () => {
+        ws.send(
+          JSON.stringify({
+            type: "register",
+            role: "owner",
+            walk_id: walkId
+          })
+        );
       };
-      ws.send(JSON.stringify(ownerData));
-      ownerMarker.setLatLng([ownerData.lat, ownerData.lng]);
-      map.setView([ownerData.lat, ownerData.lng], 15);
-    });
-  }
-};
 
-ws.onerror = () => {
-  document.getElementById("status").innerText = "Connection error!";
-  document.getElementById("status").className = "p-3 bg-red-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
-};
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
 
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  if(data.role === "walker"){
-    const pos = { lat: data.lat, lng: data.lng };
+        if (!startTime) {
+          startTime = Date.now();
+          document.getElementById("walkState").innerText =
+            "🟢 Walk in progress";
+        }
 
-    // Initialize polyline if first point
-    if(routeCoordinates.length === 0){
-      routeCoordinates.push(pos);
-      walkerMarker.setLatLng(pos);
-      routePolyline = L.polyline(routeCoordinates, { color: 'red', weight: 4 }).addTo(map);
-      map.setView(pos, 15);
-    } else {
-      routeCoordinates.push(pos);
-      walkerMarker.setLatLng(pos);
-      routePolyline.setLatLngs(routeCoordinates);
-      map.panTo(pos);
+        const latlng = [data.lat, data.lng];
+
+        if (!map) {
+          map = L.map("map").setView(latlng, 16);
+          L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            { attribution: "© OpenStreetMap" }
+          ).addTo(map);
+
+          marker = L.marker(latlng).addTo(map);
+          polyline = L.polyline([latlng], { color: "blue" }).addTo(map);
+        } else {
+          marker.setLatLng(latlng);
+          polyline.addLatLng(latlng);
+          map.panTo(latlng);
+        }
+
+        if (path.length > 0) {
+          totalDistance += haversine(
+            path[path.length - 1],
+            latlng
+          );
+          document.getElementById("distance").innerText =
+            totalDistance.toFixed(2);
+        }
+
+        path.push(latlng);
+        updateDuration();
+      };
+
+      ws.onclose = () => {
+        document.getElementById("walkState").innerText =
+          "🔴 Walk ended";
+      };
     }
 
-    const distance = calculateDistance(routeCoordinates);
-    document.getElementById("status").innerText = `Last update: ${new Date(data.timestamp).toLocaleTimeString()} | Distance: ${distance.toFixed(2)} km`;
-  }
-};
-</script>
+    function updateDuration() {
+      const seconds = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById("duration").innerText = seconds;
+    }
 
+    function haversine(a, b) {
+      const R = 6371000;
+      const toRad = (x) => (x * Math.PI) / 180;
+
+      const dLat = toRad(b[0] - a[0]);
+      const dLng = toRad(b[1] - a[1]);
+
+      const lat1 = toRad(a[0]);
+      const lat2 = toRad(b[0]);
+
+      const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) *
+          Math.cos(lat2) *
+          Math.sin(dLng / 2) ** 2;
+
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+  </script>
 </body>
 </html>
