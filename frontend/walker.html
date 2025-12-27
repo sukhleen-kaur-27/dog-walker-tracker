@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dog Walker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+<h1 class="text-4xl font-bold mb-4 text-gray-800">🚶 Dog Walker</h1>
+<div id="status" class="p-3 bg-yellow-400 text-black rounded shadow mb-4 w-full max-w-md text-center">
+  Connecting to server...
+</div>
+<button id="startBtn" class="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 mb-4">
+  Start Walk
+</button>
+
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+  ws.onopen = () => {
+    document.getElementById("status").innerText = "Connected to server!";
+    document.getElementById("status").className = "p-3 bg-green-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
+  };
+  ws.onerror = () => {
+    document.getElementById("status").innerText = "Connection error!";
+    document.getElementById("status").className = "p-3 bg-red-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
+  };
+  ws.onclose = () => console.log("WebSocket closed. Refresh to reconnect.");
+
+  let intervalId;
+
+  document.getElementById("startBtn").addEventListener("click", () => {
+    if (!navigator.geolocation) return alert("Geolocation not supported");
+    if(intervalId) return; // prevent multiple intervals
+
+    intervalId = setInterval(() => {
+      if(ws.readyState !== WebSocket.OPEN) return;
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        const data = {
+          role: "walker",
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          timestamp: Date.now()
+        };
+        ws.send(JSON.stringify(data));
+      });
+    }, 3000);
+  });
+});
+</script>
+
+</body>
+</html>
