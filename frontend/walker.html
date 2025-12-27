@@ -17,7 +17,10 @@
 
 <script>
 window.addEventListener("DOMContentLoaded", () => {
-  const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+  // const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+  const ws = new WebSocket(
+  "wss://dog-walker-tracker.up.railway.app/ws"
+);
   ws.onopen = () => {
     document.getElementById("status").innerText = "Connected to server!";
     document.getElementById("status").className = "p-3 bg-green-500 text-white rounded shadow mb-4 w-full max-w-md text-center";
