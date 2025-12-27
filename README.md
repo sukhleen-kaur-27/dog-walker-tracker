@@ -56,14 +56,14 @@ The owner’s location is **never shared with the walker**.
 ### 1️⃣ Install dependencies
 ```bash
 pip install -r requirements.txt
-
+```
 ### 2️⃣ Start the backend server
 ```bash
 python -m uvicorn main:app --reload
-
+```
 ---
 
-##🚀 Future Improvements
+## 🚀 Future Improvements
 
 -🔐 Authentication (Owner ↔ Walker pairing)
 
