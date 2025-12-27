@@ -24,6 +24,55 @@
 
 ---
 
+## 📂 Project Structure
+dog-tracker/
+│
+├── backend/
+│ ├── main.py # FastAPI backend
+│ ├── requirements.txt # Python dependencies
+│ └── frontend/
+│ ├── owner.html # Owner dashboard
+│ └── walker.html # Walker live tracking page
+│
+└── README.md
+
+---
+
+## 🔁 How it works
+
+1. The **walker** opens `walker.html`
+2. The browser requests location permission
+3. The walker’s location is sent via WebSocket
+4. The **owner** opens `owner.html`
+5. The owner receives live updates on the map
+6. Route and total distance are updated in real time
+
+The owner’s location is **never shared with the walker**.
+
+---
+
 ## ▶️ Running Locally
+
+### 1️⃣ Install dependencies
+```bash
+pip install -r requirements.txt
+
+### 2️⃣ Start the backend server
 ```bash
 python -m uvicorn main:app --reload
+
+---
+
+##🚀 Future Improvements
+
+-🔐 Authentication (Owner ↔ Walker pairing)
+
+-📊 Walk history and analytics
+
+-🧠 AI insights (pace analysis, alerts)
+
+-📱 Mobile-friendly UI
+
+-🌐 Google Maps integration
+
+-🐕 Support for multiple walkers and dogs
