@@ -45,7 +45,10 @@ function calculateDistance(coords) {
   return total;
 }
 
-const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+// const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+const ws = new WebSocket(
+  "wss://dog-walker-tracker.up.railway.app/ws"
+);
 
 ws.onopen = () => {
   document.getElementById("status").innerText = "Connected to dog walker!";
