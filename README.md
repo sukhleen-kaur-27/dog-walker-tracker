@@ -25,17 +25,18 @@
 ---
 
 ## 📂 Project Structure
+```text
 dog-tracker/
 │
 ├── backend/
-│ ├── main.py # FastAPI backend
-│ ├── requirements.txt # Python dependencies
-│ └── frontend/
-│ ├── owner.html # Owner dashboard
-│ └── walker.html # Walker live tracking page
+│   ├── main.py              # FastAPI backend
+│   ├── requirements.txt     # Python dependencies
+│   └── frontend/
+│       ├── owner.html       # Owner dashboard
+│       └── walker.html      # Walker live tracking page
 │
 └── README.md
-
+```
 ---
 
 ## 🔁 How it works
