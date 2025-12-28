@@ -30,6 +30,7 @@
     <div class="stats">
       Distance: <span id="distance">0</span> meters
     </div>
+
     <div class="stats">
       Duration: <span id="duration">0</span> seconds
     </div>
@@ -40,10 +41,13 @@
   <script>
     let ws;
     let map, marker, polyline;
+
     let path = [];
     let totalDistance = 0;
+
     let startTime = null;
     let durationTimer = null;
+    let walkActive = false;
 
     function connect() {
       const walkId = document.getElementById("walkIdInput").value.trim();
@@ -51,6 +55,8 @@
         alert("Enter Walk ID");
         return;
       }
+
+      resetState();
 
       const protocol = location.protocol === "https:" ? "wss" : "ws";
       ws = new WebSocket(`${protocol}://${location.host}/ws`);
@@ -66,33 +72,55 @@
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        // 🔒 Only handle location messages for map updates
-        if (data.type === "location" && data.lat && data.lng) {
-          handleLocation(data.lat, data.lng);
+        // ---------------- STATUS ----------------
+        if (data.type === "status") {
+          if (data.state === "started") {
+            walkActive = true;
+            startTime = Date.now();
+            startDurationTimer();
+            document.getElementById("walkState").innerText = "🟢 Walk in progress";
+          }
+
+          if (data.state === "stopped") {
+            walkActive = false;
+            stopDurationTimer();
+            document.getElementById("walkState").innerText = "🔴 Walk stopped";
+          }
+          return;
         }
 
-        // Optional future-proofing
-        if (data.type === "status" && data.state === "stopped") {
-          stopDurationTimer();
-          document.getElementById("walkState").innerText = "🔴 Walk stopped";
+        // ---------------- LOCATION ----------------
+        if (data.type === "location" && walkActive) {
+          handleLocation(data.lat, data.lng);
         }
       };
 
       ws.onclose = () => {
         stopDurationTimer();
-        document.getElementById("walkState").innerText = "🔴 Connection closed";
+        document.getElementById("walkState").innerText = "🔴 Walk ended";
       };
     }
 
-    function handleLocation(lat, lng) {
-      const latlng = [lat, lng];
+    function resetState() {
+      path = [];
+      totalDistance = 0;
+      startTime = null;
+      walkActive = false;
 
-      // First location = walk start
-      if (!startTime) {
-        startTime = Date.now();
-        document.getElementById("walkState").innerText = "🟢 Walk in progress";
-        startDurationTimer();
+      document.getElementById("distance").innerText = "0";
+      document.getElementById("duration").innerText = "0";
+
+      if (map) {
+        map.remove();
+        map = null;
       }
+    }
+
+    // ---------------- LOCATION HANDLING ----------------
+    function handleLocation(lat, lng) {
+      if (lat == null || lng == null) return;
+
+      const latlng = [lat, lng];
 
       if (!map) {
         map = L.map("map").setView(latlng, 16);
@@ -118,6 +146,7 @@
       path.push(latlng);
     }
 
+    // ---------------- TIMER ----------------
     function startDurationTimer() {
       if (durationTimer) return;
 
@@ -134,6 +163,7 @@
       }
     }
 
+    // ---------------- DISTANCE ----------------
     function haversine(a, b) {
       const R = 6371000;
       const toRad = (x) => (x * Math.PI) / 180;

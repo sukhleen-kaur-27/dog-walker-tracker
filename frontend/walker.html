@@ -4,12 +4,14 @@
   <title>Walker</title>
 
   <!-- Leaflet -->
-  <link rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+  <!-- App CSS -->
   <link rel="stylesheet" href="/static/styles.css" />
-
 </head>
 
 <body>
@@ -18,23 +20,30 @@
 
     <p>Walk ID: <strong id="walkId"></strong></p>
 
-    <button onclick="startWalk()" class="primary">▶ Start Walk</button>
-    <button onclick="stopWalk()" class="secondary">⏹ Stop Walk</button>
+    <button onclick="startWalk()" class="btn primary">▶ Start Walk</button>
+    <button onclick="stopWalk()" class="btn secondary">⏹ Stop Walk</button>
 
     <div id="status">Waiting to start</div>
 
     <div id="map" class="map"></div>
   </div>
+
   <script>
-    const walkId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // -------------------------
+    // STATE
+    // -------------------------
+    let walkActive = false;
+    let walkId = generateWalkId();
+    let ws;
+    let map, marker;
+
     document.getElementById("walkId").innerText = walkId;
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
-    // const ws = new WebSocket(`${protocol}://${location.host}/ws`);
 
-    let map, marker;
-    let walkActive = false;
-
+    // -------------------------
+    // WEBSOCKET
+    // -------------------------
     function connectWS() {
       ws = new WebSocket(`${protocol}://${location.host}/ws`);
 
@@ -49,50 +58,92 @@
 
     connectWS();
 
+    // -------------------------
+    // WALK CONTROL
+    // -------------------------
+    function generateWalkId() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
     function startWalk() {
+      if (walkActive) return;
+
       walkActive = true;
+
+      // 🔑 NEW walk session = NEW walk ID
+      walkId = generateWalkId();
+      document.getElementById("walkId").innerText = walkId;
+
+      ws.send(JSON.stringify({
+        type: "register",
+        role: "walker",
+        walk_id: walkId
+      }));
+
+      ws.send(JSON.stringify({
+        type: "status",
+        state: "started",
+        walk_id: walkId
+      }));
+
       document.getElementById("status").innerText = "🟢 Walk started";
     }
 
     function stopWalk() {
+      if (!walkActive) return;
+
       walkActive = false;
+
       document.getElementById("status").innerText = "🔴 Walk stopped";
-      // notify the owner that the walk has stopped      
+
+      // 🔔 Notify owner (DO NOT close WS)
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           type: "status",
           state: "stopped",
           walk_id: walkId
         }));
-        ws.close();
       }
     }
 
-    navigator.geolocation.watchPosition(pos => {
-      const { latitude, longitude } = pos.coords;
+    // -------------------------
+    // GEOLOCATION
+    // -------------------------
+    navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
 
-      if (!map) {
-        map = L.map("map").setView([latitude, longitude], 16);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap"
-        }).addTo(map);
+        if (!map) {
+          map = L.map("map").setView([latitude, longitude], 16);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap"
+          }).addTo(map);
 
-        marker = L.marker([latitude, longitude]).addTo(map);
-      } else {
-        marker.setLatLng([latitude, longitude]);
-        map.panTo([latitude, longitude]);
+          marker = L.marker([latitude, longitude]).addTo(map);
+        } else {
+          marker.setLatLng([latitude, longitude]);
+          map.panTo([latitude, longitude]);
+        }
+
+        // 🔥 Send location ONLY if walk is active
+        if (walkActive && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "location",
+            walk_id: walkId,
+            lat: latitude,
+            lng: longitude
+          }));
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 5000
       }
-
-      // 🔥 Only send location if walk is active
-      if (walkActive && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: "location",
-          walk_id: walkId,
-          lat: latitude,
-          lng: longitude
-        }));
-      }
-    });
+    );
   </script>
 </body>
 </html>

@@ -16,7 +16,7 @@ app.add_middleware(
 # Store all connected clients
 clients = []
 walk_sessions = {}
-
+walk_states = {}
 
 
 @app.websocket("/ws")
@@ -37,19 +37,22 @@ async def websocket_endpoint(ws: WebSocket):
                     walk_sessions[walk_id] = {}
 
                 walk_sessions[walk_id][role] = ws
+                walk_states.setdefault(walk_id, "stopped")
                 print(f"{role} joined walk {walk_id}")
+            elif data["type"] == "status":
+                walk_states[walk_id] = data["state"]
 
-            elif data["type"] in ("location", "status"):
-                if walk_id in walk_sessions:
-                    owner_ws = walk_sessions[walk_id].get("owner")
-                    if owner_ws:
-                        await owner_ws.send_json(data)
-
-                        
-            elif data["type"] == "walk_stopped":
                 owner_ws = walk_sessions.get(walk_id, {}).get("owner")
                 if owner_ws:
-                    await owner_ws.send_json({"type": "walk_stopped"})
+                    await owner_ws.send_json(data)
+            elif data["type"] == "location":
+                if walk_states.get(walk_id) != "started":
+                    continue  # ignore stray GPS updates
+
+                owner_ws = walk_sessions.get(walk_id, {}).get("owner")
+                if owner_ws:
+                    await owner_ws.send_json(data)
+
 
     except WebSocketDisconnect:
         if walk_id and walk_id in walk_sessions:
