@@ -18,10 +18,18 @@
   <div class="container">
     <h2>🚶 Walker</h2>
 
-    <p>Walk ID: <strong id="walkId"></strong></p>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+      <p style="margin: 0;">Walk ID: <strong id="walkId"></strong></p>
+      <button onclick="copyWalkId()" class="btn" style="padding: 5px 10px; font-size: 14px;" title="Copy Walk ID">
+        📋 Copy
+      </button>
+    </div>
 
-    <button onclick="startWalk()" class="btn primary">▶ Start Walk</button>
-    <button onclick="stopWalk()" class="btn secondary">⏹ Stop Walk</button>
+    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+      <button onclick="newWalk()" class="btn" style="background-color: #6c757d;">🆕 New Walk</button>
+      <button onclick="startWalk()" class="btn primary">▶ Start Walk</button>
+      <button onclick="stopWalk()" class="btn secondary">⏹ Stop Walk</button>
+    </div>
 
     <div id="status">Waiting to start</div>
 
@@ -63,6 +71,86 @@
     // -------------------------
     function generateWalkId() {
       return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function newWalk() {
+      // Stop current walk if active
+      if (walkActive) {
+        stopWalk();
+      }
+
+      // Generate new walk ID
+      walkId = generateWalkId();
+      document.getElementById("walkId").innerText = walkId;
+      
+      // Reset status
+      document.getElementById("status").innerText = "Waiting to start";
+      
+      // Re-register with new walk ID
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "register",
+          role: "walker",
+          walk_id: walkId
+        }));
+        console.log("New walk ID generated:", walkId);
+      } else {
+        // If WebSocket is not open, reconnect
+        connectWS();
+      }
+    }
+
+    function copyWalkId() {
+      const walkIdText = document.getElementById("walkId").innerText;
+      const copyBtn = document.querySelector('button[onclick="copyWalkId()"]');
+      
+      // Use the Clipboard API if available
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(walkIdText).then(() => {
+          // Show feedback
+          const originalText = copyBtn.innerHTML;
+          copyBtn.innerHTML = "✓ Copied!";
+          copyBtn.style.backgroundColor = "#28a745";
+          
+          setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+            copyBtn.style.backgroundColor = "";
+          }, 2000);
+        }).catch(err => {
+          console.error("Failed to copy:", err);
+          fallbackCopy(walkIdText, copyBtn);
+        });
+      } else {
+        // Fallback for older browsers
+        fallbackCopy(walkIdText, copyBtn);
+      }
+    }
+
+    function fallbackCopy(text, copyBtn) {
+      // Create a temporary textarea element
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      
+      try {
+        document.execCommand("copy");
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = "✓ Copied!";
+        copyBtn.style.backgroundColor = "#28a745";
+        
+        setTimeout(() => {
+          copyBtn.innerHTML = originalText;
+          copyBtn.style.backgroundColor = "";
+        }, 2000);
+      } catch (err) {
+        console.error("Fallback copy failed:", err);
+        alert("Failed to copy. Walk ID: " + text);
+      }
+      
+      document.body.removeChild(textarea);
     }
 
     function startWalk() {
