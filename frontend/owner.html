@@ -71,14 +71,16 @@
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        console.log("Owner received:", data);
 
-        // ---------------- STATUS ----------------
+        // ---------------- STATUS ---------------- 
         if (data.type === "status") {
           if (data.state === "started") {
             walkActive = true;
             startTime = Date.now();
             startDurationTimer();
             document.getElementById("walkState").innerText = "🟢 Walk in progress";
+            console.log("Walk started, timer started");
           }
 
           if (data.state === "stopped") {
@@ -89,8 +91,9 @@
           return;
         }
 
-        // ---------------- LOCATION ----------------
-        if (data.type === "location" && walkActive) {
+        // ---------------- LOCATION ---------------- 
+        if (data.type === "location") {
+          console.log("Owner received location:", data.lat, data.lng);
           handleLocation(data.lat, data.lng);
         }
       };
@@ -116,11 +119,24 @@
       }
     }
 
-    // ---------------- LOCATION HANDLING ----------------
+    // ---------------- LOCATION HANDLING ---------------- 
     function handleLocation(lat, lng) {
-      if (lat == null || lng == null) return;
+      if (lat == null || lng == null) {
+        console.log("Invalid location data:", lat, lng);
+        return;
+      }
 
       const latlng = [lat, lng];
+
+      // If we receive a location update but walk isn't marked as active,
+      // it means owner connected after walk started - start the timer now
+      if (!walkActive && !durationTimer) {
+        console.log("Received location but walk not active - starting timer now");
+        walkActive = true;
+        startTime = Date.now();
+        startDurationTimer();
+        document.getElementById("walkState").innerText = "🟢 Walk in progress";
+      }
 
       if (!map) {
         map = L.map("map").setView(latlng, 16);
@@ -138,9 +154,13 @@
       }
 
       if (path.length > 0) {
-        totalDistance += haversine(path[path.length - 1], latlng);
+        const distanceIncrement = haversine(path[path.length - 1], latlng);
+        totalDistance += distanceIncrement;
         document.getElementById("distance").innerText =
           totalDistance.toFixed(2);
+        console.log(`Distance updated: +${distanceIncrement.toFixed(2)}m, total: ${totalDistance.toFixed(2)}m`);
+      } else {
+        console.log("First location received, initializing path");
       }
 
       path.push(latlng);

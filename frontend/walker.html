@@ -70,10 +70,8 @@
 
       walkActive = true;
 
-      // 🔑 NEW walk session = NEW walk ID
-      walkId = generateWalkId();
-      document.getElementById("walkId").innerText = walkId;
-
+      // Use the existing walkId that was generated on page load
+      // Re-register to ensure we're connected with the correct walk_id
       ws.send(JSON.stringify({
         type: "register",
         role: "walker",
@@ -127,21 +125,50 @@
 
         // 🔥 Send location ONLY if walk is active
         if (walkActive && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
+          const locationData = {
             type: "location",
             walk_id: walkId,
             lat: latitude,
             lng: longitude
-          }));
+          };
+          console.log("Walker sending location:", locationData);
+          ws.send(JSON.stringify(locationData));
         }
       },
       (err) => {
         console.error("Geolocation error:", err);
+        
+        let errorMessage = "Location error: ";
+        switch(err.code) {
+          case err.PERMISSION_DENIED:
+            errorMessage = "❌ Location permission denied. Please enable location access in your browser settings.";
+            break;
+          case err.POSITION_UNAVAILABLE:
+            errorMessage = "⚠️ Location unavailable. Please check your GPS settings.";
+            break;
+          case err.TIMEOUT:
+            errorMessage = "⏱️ Location timeout. Trying again... (Make sure you're in an area with GPS signal)";
+            break;
+          default:
+            errorMessage = "⚠️ Location error occurred. Please try again.";
+            break;
+        }
+        
+        // Update status to show error, but don't block the walk if it's already active
+        if (!walkActive) {
+          document.getElementById("status").innerText = errorMessage;
+        } else {
+          // If walk is active, show error but keep walk running
+          const currentStatus = document.getElementById("status").innerText;
+          if (!currentStatus.includes("⚠️") && !currentStatus.includes("❌")) {
+            document.getElementById("status").innerText = "🟢 Walk in progress (⚠️ GPS signal weak)";
+          }
+        }
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 1000,
-        timeout: 5000
+        maximumAge: 5000,  // Increased to accept slightly older positions
+        timeout: 10000     // Increased from 5s to 10s to give GPS more time
       }
     );
   </script>

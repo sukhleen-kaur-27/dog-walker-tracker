@@ -40,18 +40,30 @@ async def websocket_endpoint(ws: WebSocket):
                 walk_states.setdefault(walk_id, "stopped")
                 print(f"{role} joined walk {walk_id}")
             elif data["type"] == "status":
-                walk_states[walk_id] = data["state"]
+                # Use walk_id from message data to ensure consistency
+                msg_walk_id = data.get("walk_id", walk_id)
+                walk_states[msg_walk_id] = data["state"]
 
-                owner_ws = walk_sessions.get(walk_id, {}).get("owner")
+                owner_ws = walk_sessions.get(msg_walk_id, {}).get("owner")
                 if owner_ws:
                     await owner_ws.send_json(data)
             elif data["type"] == "location":
-                if walk_states.get(walk_id) != "started":
+                # Use walk_id from message data to ensure consistency
+                msg_walk_id = data.get("walk_id", walk_id)
+                
+                # Debug logging
+                print(f"Location update for walk_id: {msg_walk_id}, state: {walk_states.get(msg_walk_id)}, owner_connected: {msg_walk_id in walk_sessions and 'owner' in walk_sessions.get(msg_walk_id, {})}")
+                
+                if walk_states.get(msg_walk_id) != "started":
+                    print(f"Ignoring location update - walk not started for {msg_walk_id}")
                     continue  # ignore stray GPS updates
 
-                owner_ws = walk_sessions.get(walk_id, {}).get("owner")
+                owner_ws = walk_sessions.get(msg_walk_id, {}).get("owner")
                 if owner_ws:
+                    print(f"Forwarding location to owner for {msg_walk_id}")
                     await owner_ws.send_json(data)
+                else:
+                    print(f"No owner connected for walk_id {msg_walk_id}")
 
 
     except WebSocketDisconnect:
