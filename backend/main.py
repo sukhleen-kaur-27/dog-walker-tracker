@@ -17,7 +17,7 @@ app.add_middleware(
 clients = []
 walk_sessions = {}
 
-@app.websocket("/ws")
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):

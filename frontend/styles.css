@@ -7,6 +7,14 @@ body {
   font-family: Arial, sans-serif;
   background: #f5f7fa;
 }
+/* 
+.container {
+  text-align: center;
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+} */
 
 .container {
   text-align: center;
@@ -14,6 +22,9 @@ body {
   padding: 40px;
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  max-width: 600px;   /* Limit width for large screens */
+  width: 90%;         /* Flexibly scale on smaller screens */
+  margin: 20px auto;  /* Center on page */
 }
 
 h1 {
@@ -49,4 +60,56 @@ p {
 
 .btn:hover {
   opacity: 0.9;
+}
+/* Map container */
+/* .map {
+  height: 400px;
+  width: 100%;
+  margin-top: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+} */
+
+
+.map {
+  width: 100%;
+  height: 400px;   /* base height for desktop */
+  max-height: 80vh; /* don’t overflow screen height */
+  margin-top: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Mobile adjustments */
+@media (max-width: 500px) {
+  .map {
+    height: 300px;
+  }
+}
+
+/* Buttons container */
+.buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;  /* Wrap horizontally if screen is narrow */
+  margin-top: 20px;
+}
+
+
+.buttons button,
+.buttons a {
+  flex: 1 1 120px;  /* Grow and shrink, min width 120px */
+  max-width: 200px;
+  padding: 12px 0;
+}
+
+
+@media (max-width: 700px) {
+  .container {
+    padding: 30px 20px;
+  }
+  .buttons button, .buttons a {
+    flex: 1 1 100%;
+  }
 }

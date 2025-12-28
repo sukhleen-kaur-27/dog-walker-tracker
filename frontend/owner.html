@@ -10,42 +10,33 @@
   />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-    }
-    #map {
-      height: 400px;
-      margin-top: 15px;
-    }
-    .stats {
-      margin-top: 10px;
-      font-size: 16px;
-    }
-  </style>
+  <link rel="stylesheet" href="/static/styles.css" />
+
 </head>
 
 <body>
-  <h2>🐶 Owner View</h2>
+  <div class="container">
+    <h2>🐶 Owner View</h2>
 
-  <label>
-    Enter Walk ID:
-    <input id="walkIdInput" />
-  </label>
-  <button onclick="connect()">Connect</button>
+    <label>
+      Enter Walk ID:
+      <input id="walkIdInput" />
+    </label>
+    <button onclick="connect()">Connect</button>
 
-  <div id="walkState" class="stats">
-    ⏸ Waiting for walk to start
+    <div id="walkState" class="stats">
+      ⏸ Waiting for walk to start
+    </div>
+
+    <div class="stats">
+      Distance: <span id="distance">0</span> meters
+    </div>
+    <div class="stats">
+      Duration: <span id="duration">0</span> seconds
+    </div>
+
+    <div id="map" class="map"></div>
   </div>
-
-  <div class="stats">
-    Distance: <span id="distance">0</span> meters
-  </div>
-  <div class="stats">
-    Duration: <span id="duration">0</span> seconds
-  </div>
-
-  <div id="map"></div>
 
   <script>
     let ws;
