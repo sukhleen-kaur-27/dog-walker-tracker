@@ -18,8 +18,8 @@
 
     <p>Walk ID: <strong id="walkId"></strong></p>
 
-    <button onclick="startWalk()">▶ Start Walk</button>
-    <button onclick="stopWalk()">⏹ Stop Walk</button>
+    <button onclick="startWalk()" class="primary">▶ Start Walk</button>
+    <button onclick="stopWalk()" class="secondary">⏹ Stop Walk</button>
 
     <div id="status">Waiting to start</div>
 
@@ -30,18 +30,24 @@
     document.getElementById("walkId").innerText = walkId;
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${protocol}://${location.host}/ws`);
+    // const ws = new WebSocket(`${protocol}://${location.host}/ws`);
 
     let map, marker;
     let walkActive = false;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: "register",
-        role: "walker",
-        walk_id: walkId
-      }));
-    };
+    function connectWS() {
+      ws = new WebSocket(`${protocol}://${location.host}/ws`);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          type: "register",
+          role: "walker",
+          walk_id: walkId
+        }));
+      };
+    }
+
+    connectWS();
 
     function startWalk() {
       walkActive = true;
@@ -51,6 +57,15 @@
     function stopWalk() {
       walkActive = false;
       document.getElementById("status").innerText = "🔴 Walk stopped";
+      // notify the owner that the walk has stopped      
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "status",
+          state: "stopped",
+          walk_id: walkId
+        }));
+        ws.close();
+      }
     }
 
     navigator.geolocation.watchPosition(pos => {

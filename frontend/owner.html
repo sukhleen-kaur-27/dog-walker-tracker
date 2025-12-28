@@ -11,7 +11,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <link rel="stylesheet" href="/static/styles.css" />
-
 </head>
 
 <body>
@@ -22,7 +21,7 @@
       Enter Walk ID:
       <input id="walkIdInput" />
     </label>
-    <button onclick="connect()">Connect</button>
+    <button onclick="connect()" class="btn primary">Connect</button>
 
     <div id="walkState" class="stats">
       ⏸ Waiting for walk to start
@@ -44,6 +43,7 @@
     let path = [];
     let totalDistance = 0;
     let startTime = null;
+    let durationTimer = null;
 
     function connect() {
       const walkId = document.getElementById("walkIdInput").value.trim();
@@ -56,63 +56,82 @@
       ws = new WebSocket(`${protocol}://${location.host}/ws`);
 
       ws.onopen = () => {
-        ws.send(
-          JSON.stringify({
-            type: "register",
-            role: "owner",
-            walk_id: walkId
-          })
-        );
+        ws.send(JSON.stringify({
+          type: "register",
+          role: "owner",
+          walk_id: walkId
+        }));
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        if (!startTime) {
-          startTime = Date.now();
-          document.getElementById("walkState").innerText =
-            "🟢 Walk in progress";
+        // 🔒 Only handle location messages for map updates
+        if (data.type === "location" && data.lat && data.lng) {
+          handleLocation(data.lat, data.lng);
         }
 
-        const latlng = [data.lat, data.lng];
-
-        if (!map) {
-          map = L.map("map").setView(latlng, 16);
-          L.tileLayer(
-            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            { attribution: "© OpenStreetMap" }
-          ).addTo(map);
-
-          marker = L.marker(latlng).addTo(map);
-          polyline = L.polyline([latlng], { color: "blue" }).addTo(map);
-        } else {
-          marker.setLatLng(latlng);
-          polyline.addLatLng(latlng);
-          map.panTo(latlng);
+        // Optional future-proofing
+        if (data.type === "status" && data.state === "stopped") {
+          stopDurationTimer();
+          document.getElementById("walkState").innerText = "🔴 Walk stopped";
         }
-
-        if (path.length > 0) {
-          totalDistance += haversine(
-            path[path.length - 1],
-            latlng
-          );
-          document.getElementById("distance").innerText =
-            totalDistance.toFixed(2);
-        }
-
-        path.push(latlng);
-        updateDuration();
       };
 
       ws.onclose = () => {
-        document.getElementById("walkState").innerText =
-          "🔴 Walk ended";
+        stopDurationTimer();
+        document.getElementById("walkState").innerText = "🔴 Connection closed";
       };
     }
 
-    function updateDuration() {
-      const seconds = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById("duration").innerText = seconds;
+    function handleLocation(lat, lng) {
+      const latlng = [lat, lng];
+
+      // First location = walk start
+      if (!startTime) {
+        startTime = Date.now();
+        document.getElementById("walkState").innerText = "🟢 Walk in progress";
+        startDurationTimer();
+      }
+
+      if (!map) {
+        map = L.map("map").setView(latlng, 16);
+        L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          { attribution: "© OpenStreetMap" }
+        ).addTo(map);
+
+        marker = L.marker(latlng).addTo(map);
+        polyline = L.polyline([latlng], { color: "blue" }).addTo(map);
+      } else {
+        marker.setLatLng(latlng);
+        polyline.addLatLng(latlng);
+        map.panTo(latlng);
+      }
+
+      if (path.length > 0) {
+        totalDistance += haversine(path[path.length - 1], latlng);
+        document.getElementById("distance").innerText =
+          totalDistance.toFixed(2);
+      }
+
+      path.push(latlng);
+    }
+
+    function startDurationTimer() {
+      if (durationTimer) return;
+
+      durationTimer = setInterval(() => {
+        const seconds = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("duration").innerText = seconds;
+      }, 1000);
+    }
+
+    function stopDurationTimer() {
+      if (durationTimer) {
+        clearInterval(durationTimer);
+        durationTimer = null;
+      }
     }
 
     function haversine(a, b) {

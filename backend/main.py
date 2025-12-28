@@ -39,11 +39,17 @@ async def websocket_endpoint(ws: WebSocket):
                 walk_sessions[walk_id][role] = ws
                 print(f"{role} joined walk {walk_id}")
 
-            elif data["type"] == "location":
+            elif data["type"] in ("location", "status"):
                 if walk_id in walk_sessions:
                     owner_ws = walk_sessions[walk_id].get("owner")
                     if owner_ws:
                         await owner_ws.send_json(data)
+
+                        
+            elif data["type"] == "walk_stopped":
+                owner_ws = walk_sessions.get(walk_id, {}).get("owner")
+                if owner_ws:
+                    await owner_ws.send_json({"type": "walk_stopped"})
 
     except WebSocketDisconnect:
         if walk_id and walk_id in walk_sessions:
